@@ -2,106 +2,70 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>机器人紧急呼叫</title>
+    <title>MQTT连接测试</title>
     <script src="https://unpkg.com/paho-mqtt@1.1.0/paho-mqtt.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; text-align: center; padding: 20px; background-color: #f0f2f5; }
-        .container { max-width: 400px; margin: auto; }
-        button { width: 100%; font-size: 1.5em; font-weight: bold; padding: 25px 0; margin-top: 20px; border-radius: 12px; border: none; color: white; cursor: pointer; transition: transform 0.1s; }
-        button:active { transform: scale(0.98); }
-        #dangerBtn { background-color: #e74c3c; }
-        #arriveBtn { background-color: #2ecc71; }
-        #status { margin-top: 25px; font-size: 1.1em; color: #333; min-height: 50px; }
+        body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+        #status { font-weight: bold; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>机器人助手</h1>
-        <button id="dangerBtn" onclick="sendAlert('danger')">🔴 我遇到危险</button>
-        <button id="arriveBtn" onclick="sendAlert('arrived')">✅ 我已到达</button>
-        <p id="status">请在需要时点击按钮</p>
-    </div>
-    
+    <h1>MQTT 发送功能测试</h1>
+    <p>此页面用于诊断与MQTT服务器的连接和发送问题。</p>
+    <p id="status">正在连接到服务器...</p>
+    <button onclick="sendTestMessage()" style="font-size: 1.2em; padding: 10px 20px;">发送测试消息</button>
+
     <script>
-    const statusDiv = document.getElementById('status');
-    
-    // MQTT 配置
-    const broker = "broker.emqx.io";
-    const port = 8083; // WebSocket端口
-    const clientId = "web-client-" + Math.random().toString(16).substr(2, 8);
-    const topic = "robot/dog/location_alert";
+        const statusDiv = document.getElementById('status');
+        
+        // MQTT 配置 (与您的主程序一致)
+        const broker = "broker.emqx.io";
+        const port = 8083;
+        const clientId = "mqtt-test-client-" + Math.random().toString(16).substr(2, 8);
+        const topic = "robot/dog/location_alert";
 
-    // 创建MQTT客户端
-    const client = new Paho.MQTT.Client(broker, port, "/mqtt", clientId);
+        const client = new Paho.MQTT.Client(broker, port, "/mqtt", clientId);
 
-    // --- 新增的详细日志 ---
-    client.onConnectionLost = function (responseObject) {
-        if (responseObject.errorCode !== 0) {
-            statusDiv.innerText = "错误：与服务器断开连接，请刷新页面。";
-            console.log("onConnectionLost:" + responseObject.errorMessage);
-        }
-    };
+        client.onConnectionLost = (responseObject) => {
+            if (responseObject.errorCode !== 0) {
+                statusDiv.innerText = "连接丢失: " + responseObject.errorMessage;
+                statusDiv.style.color = 'red';
+            }
+        };
 
-    client.onMessageArrived = function (message) {
-        // Web客户端只发送，不接收，所以这里为空
-        console.log("onMessageArrived:" + message.payloadString);
-    };
-
-    // 连接MQTT服务器
-    console.log("正在尝试连接到MQTT服务器: " + broker);
-    client.connect({
-        onSuccess: function () {
-            statusDiv.innerText = "服务器已连接，请点击按钮";
-            console.log("MQTT Connected!");
-        },
-        onFailure: function (message) {
-            statusDiv.innerText = "无法连接到服务器，请检查网络";
-            console.log("MQTT Connection failed: " + message.errorMessage);
-        }
-    });
-    
-    function sendAlert(type) {
-        statusDiv.innerHTML = "正在获取您的GPS位置...";
-        if (!navigator.geolocation) {
-            statusDiv.innerText = "抱歉，您的浏览器不支持地理位置功能。";
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            function(position) {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-                statusDiv.innerHTML = `获取成功，正在通过服务器发送...`;
-
-                const payload = `${type},${lat},${lng}`;
-                
-                // --- 新增的关键检查点 ---
-                console.log("准备发送消息...");
-                console.log("客户端是否连接? " + client.isConnected());
-                console.log("发送到主题: " + topic);
-                console.log("发送内容: " + payload);
-
-                if (client.isConnected()) {
-                    try {
-                        const message = new Paho.MQTT.Message(payload);
-                        message.destinationName = topic;
-                        client.send(message);
-                        console.log("消息已发送到MQTT库。");
-                        statusDiv.innerHTML = "<b>通知请求已发送！</b>";
-                    } catch (e) {
-                        console.error("发送时出现异常: ", e);
-                        statusDiv.innerText = "发送时出现异常，请查看控制台。";
-                    }
-                } else {
-                    statusDiv.innerText = "错误：客户端已断开，请刷新页面重试。";
-                    console.log("发送失败，因为客户端已断开连接。");
-                }
+        client.connect({
+            onSuccess: () => {
+                statusDiv.innerText = "服务器已连接";
+                statusDiv.style.color = 'green';
+                console.log("MQTT Connected!");
             },
-            function(error) {
-                statusDiv.innerText = "获取位置失败: " + error.message;
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
-    }
-</script>
+            onFailure: (message) => {
+                statusDiv.innerText = "连接失败: " + message.errorMessage;
+                statusDiv.style.color = 'red';
+            }
+        });
+
+        function sendTestMessage() {
+            if (!client.isConnected()) {
+                statusDiv.innerText = "错误：客户端未连接。";
+                statusDiv.style.color = 'red';
+                return;
+            }
+            const payload = "test,123,456"; // 发送一条固定的测试消息
+            const message = new Paho.MQTT.Message(payload);
+            message.destinationName = topic;
+            
+            try {
+                client.send(message);
+                statusDiv.innerText = "测试消息已成功发送！";
+                statusDiv.style.color = 'blue';
+                console.log("Test message sent!");
+                // 检查您的ESP8266串口监视器，看是否收到了这条消息
+            } catch (e) {
+                statusDiv.innerText = "发送时捕获到异常: " + e;
+                statusDiv.style.color = 'red';
+            }
+        }
+    </script>
+</body>
+</html>
