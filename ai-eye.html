@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>机器人紧急呼叫</title>
+    <script src="https://unpkg.com/paho-mqtt@1.1.0/paho-mqtt.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; text-align: center; padding: 20px; background-color: #f0f2f5; }
+        .container { max-width: 400px; margin: auto; }
+        button { width: 100%; font-size: 1.5em; font-weight: bold; padding: 25px 0; margin-top: 20px; border-radius: 12px; border: none; color: white; cursor: pointer; transition: transform 0.1s; }
+        button:active { transform: scale(0.98); }
+        #dangerBtn { background-color: #e74c3c; }
+        #arriveBtn { background-color: #2ecc71; }
+        #status { margin-top: 25px; font-size: 1.1em; color: #333; min-height: 50px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>机器人助手</h1>
+        <button id="dangerBtn" onclick="sendAlert('danger')">🔴 我遇到危险</button>
+        <button id="arriveBtn" onclick="sendAlert('arrived')">✅ 我已到达</button>
+        <p id="status">请在需要时点击按钮</p>
+    </div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        
+        // MQTT 配置
+        const broker = "broker.emqx.io";
+        const port = 8083; // WebSocket端口
+        const clientId = "web-client-" + Math.random().toString(16).substr(2, 8);
+        const topic = "robot/dog/location_alert"; // 必须与ESP8266代码中的topic一致
+
+        // 创建MQTT客户端
+        const client = new Paho.MQTT.Client(broker, port, "/mqtt", clientId);
+
+        client.onConnectionLost = function (responseObject) {
+            if (responseObject.errorCode !== 0) {
+                statusDiv.innerText = "与服务器断开连接，请刷新。";
+            }
+        };
+
+        // 连接MQTT服务器
+        client.connect({
+            onSuccess: function () {
+                statusDiv.innerText = "服务器已连接，请点击按钮";
+                console.log("MQTT Connected!");
+            },
+            onFailure: function (message) {
+                statusDiv.innerText = "无法连接到服务器";
+                console.log("Connection failed: " + message.errorMessage);
+            }
+        });
+        
+        function sendAlert(type) {
+            statusDiv.innerHTML = "正在获取您的GPS位置...";
+            if (!navigator.geolocation) {
+                statusDiv.innerText = "抱歉，您的浏览器不支持地理位置功能。";
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    statusDiv.innerHTML = `获取成功，正在通过服务器发送...`;
+
+                    // 构造要发送的消息: "类型,纬度,经度"
+                    const payload = `${type},${lat},${lng}`;
+                    
+                    if (client.isConnected()) {
+                        const message = new Paho.MQTT.Message(payload);
+                        message.destinationName = topic;
+                        client.send(message);
+                        statusDiv.innerHTML = "<b>通知请求已发送！</b>";
+                    } else {
+                        statusDiv.innerText = "错误：未连接到服务器，请刷新页面。";
+                    }
+                },
+                function(error) {
+                    statusDiv.innerText = "获取位置失败: " + error.message;
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+    </script>
+</body>
+</html>
