@@ -2,70 +2,82 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>MQTT连接测试</title>
-    <script src="https://unpkg.com/paho-mqtt@1.1.0/paho-mqtt.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS位置自动上报器</title>
     <style>
-        body { font-family: sans-serif; text-align: center; margin-top: 50px; }
-        #status { font-weight: bold; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; text-align: center; padding: 20px; }
+        #status { font-size: 1.2em; color: #333; }
+        #countdown { font-size: 1.5em; font-weight: bold; color: #3498db; margin: 20px 0; }
     </style>
 </head>
 <body>
-    <h1>MQTT 发送功能测试</h1>
-    <p>此页面用于诊断与MQTT服务器的连接和发送问题。</p>
-    <p id="status">正在连接到服务器...</p>
-    <button onclick="sendTestMessage()" style="font-size: 1.2em; padding: 10px 20px;">发送测试消息</button>
+    <h1>位置自动上报（室内测试）</h1>
+    <p>请保持此页面在前台运行</p>
+    <div id="status">正在初始化...</div>
+    <div id="countdown"></div>
 
     <script>
         const statusDiv = document.getElementById('status');
-        
-        // MQTT 配置 (与您的主程序一致)
-        const broker = "broker.emqx.io";
-        const port = 8083;
-        const clientId = "mqtt-test-client-" + Math.random().toString(16).substr(2, 8);
-        const topic = "robot/dog/location_alert";
+        const countdownDiv = document.getElementById('countdown');
+        // 替换成您自己的阿里云“写入”API地址
+        const API_WRITE_URL = "https://YOUR_API_ID.aliyuncs.com/writeLocation";
+        const UPLOAD_INTERVAL = 300000; // 300,000毫秒 = 5分钟
 
-        const client = new Paho.MQTT.Client(broker, port, "/mqtt", clientId);
-
-        client.onConnectionLost = (responseObject) => {
-            if (responseObject.errorCode !== 0) {
-                statusDiv.innerText = "连接丢失: " + responseObject.errorMessage;
-                statusDiv.style.color = 'red';
-            }
-        };
-
-        client.connect({
-            onSuccess: () => {
-                statusDiv.innerText = "服务器已连接";
-                statusDiv.style.color = 'green';
-                console.log("MQTT Connected!");
-            },
-            onFailure: (message) => {
-                statusDiv.innerText = "连接失败: " + message.errorMessage;
-                statusDiv.style.color = 'red';
-            }
-        });
-
-        function sendTestMessage() {
-            if (!client.isConnected()) {
-                statusDiv.innerText = "错误：客户端未连接。";
-                statusDiv.style.color = 'red';
+        function getLocationAndSend() {
+            statusDiv.innerText = "正在获取您的GPS位置...";
+            if (!navigator.geolocation) {
+                statusDiv.innerText = "浏览器不支持地理位置功能。";
                 return;
             }
-            const payload = "test,123,456"; // 发送一条固定的测试消息
-            const message = new Paho.MQTT.Message(payload);
-            message.destinationName = topic;
-            
-            try {
-                client.send(message);
-                statusDiv.innerText = "测试消息已成功发送！";
-                statusDiv.style.color = 'blue';
-                console.log("Test message sent!");
-                // 检查您的ESP8266串口监视器，看是否收到了这条消息
-            } catch (e) {
-                statusDiv.innerText = "发送时捕获到异常: " + e;
-                statusDiv.style.color = 'red';
-            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    statusDiv.innerHTML = `获取成功，正在上传到云端...<br><small>${new Date().toLocaleTimeString()}</small>`;
+                    
+                    const data = { latitude: lat, longitude: lon, source: "phone_browser" };
+
+                    fetch(API_WRITE_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error('服务器响应错误 ' + response.status);
+                        return response.json(); // 假设API成功后返回JSON
+                    })
+                    .then(result => {
+                        statusDiv.innerHTML = `<b>上报成功！</b><br><small>时间: ${new Date().toLocaleTimeString()}</small>`;
+                    })
+                    .catch(error => {
+                        statusDiv.innerHTML = `<b>上传失败:</b><br><small>${error.message}</small>`;
+                    });
+                },
+                (error) => {
+                    statusDiv.innerText = "获取位置失败: " + error.message;
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
         }
+        
+        // 倒计时功能
+        let secondsLeft = UPLOAD_INTERVAL / 1000;
+        function startCountdown() {
+            if (secondsLeft <= 0) {
+                secondsLeft = UPLOAD_INTERVAL / 1000; // 重置计时器
+                getLocationAndSend();
+            }
+            const minutes = Math.floor(secondsLeft / 60);
+            const seconds = secondsLeft % 60;
+            countdownDiv.innerText = `下一次上报倒计时: ${minutes}分 ${seconds.toString().padStart(2, '0')}秒`;
+            secondsLeft--;
+        }
+
+        // 启动定时器
+        statusDiv.innerText = "系统已启动，即将第一次上报...";
+        getLocationAndSend(); // 页面加载后立即执行一次
+        setInterval(startCountdown, 1000); // 每秒更新倒计时
     </script>
 </body>
 </html>
