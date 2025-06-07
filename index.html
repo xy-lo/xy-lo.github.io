@@ -1,4 +1,29 @@
-<script>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>机器人紧急呼叫</title>
+    <script src="https://unpkg.com/paho-mqtt@1.1.0/paho-mqtt.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; text-align: center; padding: 20px; background-color: #f0f2f5; }
+        .container { max-width: 400px; margin: auto; }
+        button { width: 100%; font-size: 1.5em; font-weight: bold; padding: 25px 0; margin-top: 20px; border-radius: 12px; border: none; color: white; cursor: pointer; transition: transform 0.1s; }
+        button:active { transform: scale(0.98); }
+        #dangerBtn { background-color: #e74c3c; }
+        #arriveBtn { background-color: #2ecc71; }
+        #status { margin-top: 25px; font-size: 1.1em; color: #333; min-height: 50px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>机器人助手</h1>
+        <button id="dangerBtn" onclick="sendAlert('danger')">🔴 我遇到危险</button>
+        <button id="arriveBtn" onclick="sendAlert('arrived')">✅ 我已到达</button>
+        <p id="status">请在需要时点击按钮</p>
+    </div>
+    
+    <script>
     const statusDiv = document.getElementById('status');
     
     // MQTT 配置
