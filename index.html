@@ -331,6 +331,11 @@
                 </div>
                 
                 <div class="info-item">
+                    <div class="info-label">⏰ 系统时间</div>
+                    <div class="info-value" id="currentTimeText">--:--:--</div>
+                </div>
+                
+                <div class="info-item">
                     <div class="info-label">📊 连接状态</div>
                     <div class="info-value" id="connectionText">连接中</div>
                 </div>
@@ -385,6 +390,7 @@
         const statusText = document.getElementById('statusText');
         const locationText = document.getElementById('locationText');
         const timeText = document.getElementById('timeText');
+        const currentTimeText = document.getElementById('currentTimeText');
         const connectionText = document.getElementById('connectionText');
         const systemStatus = document.getElementById('systemStatus');
         const updateTimer = document.getElementById('updateTimer');
@@ -396,19 +402,40 @@
         let isMapInitialized = false;
         let updateInterval;
         let countdownInterval;
+        let clockInterval;
         let countdown = UPDATE_INTERVAL / 1000;
         let locationHistory = [];
         let isOnline = true;
         let currentPosition = null;
+        let lastUpdateTime = null;
+        
+        // 实时时钟更新函数
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('zh-CN', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            currentTimeText.textContent = timeString;
+        }
+        
+        // 启动实时时钟
+        function startClock() {
+            updateClock(); // 立即更新一次
+            clockInterval = setInterval(updateClock, 1000);
+        }
         
         // 初始化系统
         function initSystem() {
+            startClock(); // 启动实时时钟
             updateLocationOnMap(); // 立即加载一次
             startUpdateTimer();
             startCountdown();
         }
         
-        // 更新位置信息 - 与原始代码保持一致
+        // 更新位置信息 - 修改时间显示逻辑
         function updateLocationOnMap() {
             updateSystemStatus('connecting');
             
@@ -430,10 +457,13 @@
                     }
                     
                     currentPosition = newPosition;
-                    updateLocationInfo(lat, lon, data.timestamp);
+                    // 使用当前时间而不是API返回的时间戳
+                    const currentTime = Date.now();
+                    updateLocationInfo(lat, lon, currentTime);
                     updateSystemStatus('online');
-                    addToHistory(lat, lon, data.timestamp);
+                    addToHistory(lat, lon, currentTime);
                     isOnline = true;
+                    lastUpdateTime = currentTime;
                 })
                 .catch(error => {
                     updateSystemStatus('offline');
@@ -490,12 +520,18 @@
             marker.setPosition(position);
         }
         
-        // 更新位置信息显示
+        // 更新位置信息显示 - 使用当前时间
         function updateLocationInfo(lat, lon, timestamp) {
             locationText.textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
             
+            // 使用当前时间而不是API返回的时间戳
             const updateTime = new Date(timestamp);
-            timeText.textContent = updateTime.toLocaleTimeString('zh-CN');
+            timeText.textContent = updateTime.toLocaleTimeString('zh-CN', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
             
             connectionText.textContent = '连接正常';
         }
@@ -533,7 +569,7 @@
             }
         }
         
-        // 添加到历史记录
+        // 添加到历史记录 - 使用当前时间
         function addToHistory(lat, lon, timestamp) {
             const historyItem = {
                 lat: lat,
@@ -614,12 +650,21 @@
                 // 页面隐藏时暂停更新
                 clearInterval(updateInterval);
                 clearInterval(countdownInterval);
+                clearInterval(clockInterval);
             } else {
                 // 页面显示时恢复更新
                 updateLocationOnMap();
                 startUpdateTimer();
                 startCountdown();
+                startClock();
             }
+        });
+        
+        // 页面卸载时清理定时器
+        window.addEventListener('beforeunload', function() {
+            clearInterval(updateInterval);
+            clearInterval(countdownInterval);
+            clearInterval(clockInterval);
         });
         
         // 初始化系统
