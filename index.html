@@ -140,7 +140,7 @@
             right: 15px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
             z-index: 10;
         }
         
@@ -148,18 +148,32 @@
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(245, 230, 211, 0.9) 100%);
             backdrop-filter: blur(10px);
             border: none;
-            padding: 12px;
-            border-radius: 10px;
+            padding: 15px;
+            border-radius: 12px;
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             color: #1976D2;
-            font-size: 16px;
-            min-width: 50px;
-            height: 50px;
+            font-size: 18px;
+            min-width: 80px;
+            height: auto;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 5px;
+            font-family: 'Noto Serif SC', '楷体', 'KaiTi', serif;
+        }
+        
+        .control-btn .icon {
+            font-size: 24px;
+            line-height: 1;
+        }
+        
+        .control-btn .label {
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
         }
         
         .control-btn:hover {
@@ -235,11 +249,11 @@
         
         .floating-heart {
             position: absolute;
-            color: #FF6B9D;
-            font-size: 24px;
-            opacity: 0.6;
-            animation: float 6s ease-in-out infinite;
-            z-index: 5;
+            color: #FF9800;
+            font-size: 20px;
+            opacity: 0.4;
+            animation: float 8s ease-in-out infinite;
+            z-index: 1;
         }
         
         @keyframes float {
@@ -260,22 +274,37 @@
             .control-panel {
                 flex-direction: row;
                 top: auto;
-                bottom: 80px;
+                bottom: 90px;
                 right: 50%;
                 transform: translateX(50%);
+                max-width: 90%;
+                overflow-x: auto;
+            }
+            
+            .control-btn {
+                min-width: 60px;
+                padding: 10px 8px;
+            }
+            
+            .control-btn .icon {
+                font-size: 20px;
+            }
+            
+            .control-btn .label {
+                font-size: 10px;
             }
         }
     </style>
     <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=5962ff5fce46b45ac7a7d7888c8926c7"></script>
 </head>
 <body>
-    <div class="floating-heart" style="top: 20%; left: 10%;">💖</div>
-    <div class="floating-heart" style="top: 60%; right: 15%; animation-delay: -2s;">🌟</div>
-    <div class="floating-heart" style="top: 80%; left: 20%; animation-delay: -4s;">💝</div>
+    <div class="floating-heart" style="top: 25%; left: 8%;">🏠</div>
+    <div class="floating-heart" style="top: 70%; right: 12%; animation-delay: -3s;">❤️</div>
+    <div class="floating-heart" style="top: 85%; left: 15%; animation-delay: -6s;">👨‍👩‍👧‍👦</div>
     
     <div class="header">
-        <h1>🤖 AI智慧眼守护系统</h1>
-        <div class="subtitle">用心守护，用爱相伴 —— 让关爱无处不在</div>
+        <h1>📍 家人实时位置守护</h1>
+        <div class="subtitle">关爱无距离，安全有保障</div>
     </div>
     
     <div class="container-wrapper">
@@ -307,24 +336,28 @@
                 </div>
                 
                 <div class="info-item">
-                    <div class="info-label">🔋 系统状态</div>
+                    <div class="info-label">👤 家人状态</div>
                     <div class="info-value" id="systemStatus">正常运行</div>
                 </div>
             </div>
         </div>
         
         <div class="control-panel">
-            <button class="control-btn" onclick="refreshLocation()" title="刷新位置">
-                🔄
+            <button class="control-btn" onclick="refreshLocation()" title="立即刷新位置">
+                <div class="icon">🔄</div>
+                <div class="label">刷新</div>
             </button>
-            <button class="control-btn" onclick="centerMap()" title="居中显示">
-                🎯
+            <button class="control-btn" onclick="centerMap()" title="地图居中显示">
+                <div class="icon">🎯</div>
+                <div class="label">居中</div>
             </button>
-            <button class="control-btn" onclick="toggleHistory()" title="历史记录">
-                📋
+            <button class="control-btn" onclick="toggleHistory()" title="查看历史位置">
+                <div class="icon">📋</div>
+                <div class="label">历史</div>
             </button>
-            <button class="control-btn" onclick="toggleFullscreen()" title="全屏模式">
-                📱
+            <button class="control-btn" onclick="toggleFullscreen()" title="全屏显示地图">
+                <div class="icon">📱</div>
+                <div class="label">全屏</div>
             </button>
         </div>
         
@@ -344,7 +377,7 @@
         
         // API配置
         const API_READ_URL = "https://gpsapihandler-pwtyadhyqb.cn-beijing.fcapp.run";
-        const UPDATE_INTERVAL = 15000; // 15秒更新一次
+        const UPDATE_INTERVAL = 15000; // 每15秒刷新一次位置
         
         // DOM元素
         const statusIndicator = document.getElementById('statusIndicator');
@@ -370,44 +403,41 @@
         
         // 初始化系统
         function initSystem() {
-            updateLocationOnMap();
+            updateLocationOnMap(); // 立即加载一次
             startUpdateTimer();
             startCountdown();
         }
         
-        // 更新位置信息
+        // 更新位置信息 - 与原始代码保持一致
         function updateLocationOnMap() {
             updateSystemStatus('connecting');
             
             fetch(API_READ_URL)
-                .then(response => {
-                    if (!response.ok) throw new Error('Network response was not ok');
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
+                    // 假设API返回格式为 { "latitude": 31.123, "longitude": 121.543, "timestamp": 1678886400000 }
                     const lat = data.latitude;
                     const lon = data.longitude;
-                    const timestamp = data.timestamp;
+                    const newPosition = new AMap.LngLat(lon, lat);
                     
-                    currentPosition = new AMap.LngLat(lon, lat);
-                    
-                    // 初始化或更新地图
                     if (!isMapInitialized) {
-                        initMap(currentPosition);
+                        map = new AMap.Map('container', { resizeEnable: true, zoom: 16, center: newPosition });
+                        marker = new AMap.Marker({ map: map, position: newPosition });
+                        isMapInitialized = true;
                     } else {
-                        updateMapPosition(currentPosition);
+                        map.setCenter(newPosition);
+                        marker.setPosition(newPosition);
                     }
                     
-                    // 更新UI信息
-                    updateLocationInfo(lat, lon, timestamp);
+                    currentPosition = newPosition;
+                    updateLocationInfo(lat, lon, data.timestamp);
                     updateSystemStatus('online');
-                    addToHistory(lat, lon, timestamp);
-                    
+                    addToHistory(lat, lon, data.timestamp);
                     isOnline = true;
                 })
                 .catch(error => {
-                    console.error('Error fetching GPS data:', error);
                     updateSystemStatus('offline');
+                    console.error('Error fetching GPS data:', error);
                     isOnline = false;
                 });
         }
@@ -537,6 +567,7 @@
         // 启动更新定时器
         function startUpdateTimer() {
             updateInterval = setInterval(updateLocationOnMap, UPDATE_INTERVAL);
+            updateLocationOnMap(); // 立即加载一次
         }
         
         // 启动倒计时
